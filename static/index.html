@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telecom Voice Agent</title>
+<style>
+  :root {
+    --bg: #e8ebf0;
+    --panel: #f6f7f9;
+    --ink: #14213d;
+    --muted: #5b6577;
+    --line: #cfd5df;
+    --signal: #0b7a75;
+    --signal-soft: #d3ece9;
+    --amber: #b7791f;
+    --amber-soft: #f6e6c8;
+    --danger: #a4303f;
+    --danger-soft: #f3d7db;
+    --user: #14213d;
+    font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); min-height: 100vh; }
+  header { display: flex; align-items: baseline; gap: 14px; padding: 18px 28px 6px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: 0.01em; }
+  .badge { font-size: 12.5px; color: var(--muted); }
+  main { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; padding: 12px 28px 28px; }
+  @media (max-width: 880px) { main { grid-template-columns: 1fr; padding: 12px 14px 24px; } header { padding: 14px 14px 4px; } }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; display: flex; flex-direction: column; min-height: 0; }
+  .call { height: calc(100vh - 92px); min-height: 520px; }
+  @media (max-width: 880px) { .call { height: 72vh; } }
+
+  .transcript { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+  .msg { max-width: 82%; padding: 10px 14px; border-radius: 14px; line-height: 1.45; font-size: 15px; }
+  .msg small { display: block; margin-top: 4px; font-size: 11.5px; opacity: 0.65; }
+  .msg.agent { align-self: flex-start; background: #fff; border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .msg.user { align-self: flex-end; background: var(--user); color: #fff; border-bottom-right-radius: 4px; }
+  .msg.system { align-self: center; background: var(--amber-soft); color: #5a3d0a; font-size: 13px; max-width: 92%; }
+  .live { min-height: 22px; padding: 0 20px 6px; color: var(--muted); font-style: italic; font-size: 14px; }
+
+  .controls { border-top: 1px solid var(--line); padding: 16px 18px 18px; display: grid; gap: 12px; }
+  .mic-row { display: flex; align-items: center; gap: 16px; }
+  .mic { position: relative; width: 68px; height: 68px; border-radius: 50%; border: 0; background: var(--signal); color: #fff; cursor: pointer; flex: none; display: grid; place-items: center; }
+  .mic svg { width: 28px; height: 28px; }
+  .mic:disabled { background: #9aa4b5; cursor: not-allowed; }
+  .mic::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid transparent; }
+  .mic.listening { background: var(--danger); }
+  .mic.listening::after { border-color: var(--danger); animation: ring 1.3s ease-out infinite; }
+  .mic.speaking { background: var(--amber); }
+  .mic.thinking { background: var(--muted); }
+  @keyframes ring { from { transform: scale(0.94); opacity: 0.9; } to { transform: scale(1.28); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .mic.listening::after { animation: none; } }
+  .status { font-size: 15px; font-weight: 600; }
+  .hint { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .row { display: flex; gap: 8px; }
+  input[type=text] { flex: 1; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; font: inherit; background: #fff; color: var(--ink); }
+  button.btn { padding: 10px 16px; border-radius: 8px; border: 1px solid var(--ink); background: var(--ink); color: #fff; font: inherit; cursor: pointer; }
+  button.btn.ghost { background: transparent; color: var(--ink); }
+  button.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  label.toggle { font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+  :focus-visible { outline: 3px solid #3b82f6; outline-offset: 2px; }
+
+  .side { height: calc(100vh - 92px); min-height: 520px; overflow-y: auto; padding: 18px; gap: 18px; }
+  @media (max-width: 880px) { .side { height: auto; } }
+  h2 { font-size: 14px; margin: 0 0 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #e3e7ee; color: var(--ink); }
+  .chip.ok { background: var(--signal-soft); color: #08524e; }
+  .chip.warn { background: var(--amber-soft); color: #5a3d0a; }
+  .chip.bad { background: var(--danger-soft); color: #7a1f2b; }
+  .demo { font-size: 13px; color: var(--muted); line-height: 1.7; }
+  .demo button { all: unset; cursor: pointer; color: var(--signal); text-decoration: underline; }
+  .demo button:focus-visible { outline: 3px solid #3b82f6; }
+  .turn { border-left: 3px solid var(--line); padding-left: 12px; margin-bottom: 14px; }
+  .turn h3 { font-size: 12.5px; margin: 0 0 6px; color: var(--muted); font-weight: 600; }
+  .tool { background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--signal); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; font-size: 12.5px; }
+  .tool.confirm { border-left-color: var(--amber); }
+  .tool.err { border-left-color: var(--danger); }
+  .tool b { font-size: 13px; }
+  .tool pre { margin: 4px 0 0; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; color: var(--muted); }
+  .empty { color: var(--muted); font-size: 13.5px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Telecom Voice Agent</h1>
+  <span class="badge" id="llmBadge">connecting…</span>
+</header>
+
+<main>
+  <section class="call" aria-label="Call">
+    <div class="transcript" id="transcript" aria-live="polite"></div>
+    <div class="live" id="live"></div>
+    <div class="controls">
+      <div class="mic-row">
+        <button class="mic" id="mic" aria-label="Speak" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        </button>
+        <div>
+          <div class="status" id="status">Start a call to begin</div>
+          <div class="hint" id="hint">Works best in Chrome or Edge. Tap the mic while Asha is talking to interrupt.</div>
+        </div>
+      </div>
+      <div class="row">
+        <input type="text" id="typed" placeholder="Or type what the caller says" aria-label="Type a message" disabled>
+        <button class="btn" id="sendBtn" disabled>Send</button>
+      </div>
+      <div class="row" style="justify-content: space-between; align-items: center; flex-wrap: wrap;">
+        <div class="row">
+          <button class="btn" id="startBtn">Start call</button>
+          <button class="btn ghost" id="endBtn" disabled>End call</button>
+        </div>
+        <label class="toggle"><input type="checkbox" id="handsFree" checked> Keep listening after each reply (use headphones)</label>
+      </div>
+    </div>
+  </section>
+
+  <section class="side" aria-label="Under the hood">
+    <div>
+      <h2>Call state</h2>
+      <div class="chips" id="chips"><span class="chip">Not started</span></div>
+    </div>
+    <div>
+      <h2>Demo customers</h2>
+      <div class="demo" id="demo">Loading…</div>
+    </div>
+    <div>
+      <h2>What the agent did</h2>
+      <div id="trace"><p class="empty">Tool calls appear here as the agent works: verification, lookups, confirmations, tickets.</p></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const sessionId = crypto.randomUUID();
+let callActive = false, state = "idle", rec = null, turnId = 0, voices = [], turnCount = 0;
+
+speechSynthesis.onvoiceschanged = () => { voices = speechSynthesis.getVoices(); };
+voices = speechSynthesis.getVoices();
+
+function setState(s) {
+  state = s;
+  const mic = $("mic");
+  mic.className = "mic " + (s === "idle" ? "" : s);
+  const labels = { idle: "Your turn. Tap the mic", listening: "Listening…", thinking: "Asha is thinking…", speaking: "Asha is speaking. Tap the mic to interrupt" };
+  $("status").textContent = callActive ? labels[s] : "Start a call to begin";
+  mic.disabled = !callActive || !SR || s === "thinking";
+}
+
+function addMsg(kind, text, meta) {
+  const d = document.createElement("div");
+  d.className = "msg " + kind;
+  d.textContent = text;
+  if (meta) { const m = document.createElement("small"); m.textContent = meta; d.appendChild(m); }
+  $("transcript").appendChild(d);
+  $("transcript").scrollTop = $("transcript").scrollHeight;
+}
+
+function speak(text) {
+  return new Promise((resolve) => {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-IN"; u.rate = 1.02;
+    const v = voices.find(v => v.lang === "en-IN") || voices.find(v => v.lang.startsWith("en"));
+    if (v) u.voice = v;
+    u.onend = resolve; u.onerror = resolve;
+    speechSynthesis.speak(u);
+  });
+}
+
+function stopRec() { if (rec) { const r = rec; rec = null; try { r.abort(); } catch (e) {} } }
+
+function startListening() {
+  if (!SR || !callActive) return;
+  turnId++;                      // invalidates any reply still being spoken (barge-in)
+  speechSynthesis.cancel();
+  stopRec();
+  const me = new SR();
+  rec = me;
+  me.lang = "en-IN"; me.interimResults = true; me.maxAlternatives = 1;
+  let finalText = "";
+  me.onstart = () => setState("listening");
+  me.onresult = (e) => {
+    let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const r = e.results[i];
+      if (r.isFinal) finalText += r[0].transcript; else interim += r[0].transcript;
+    }
+    $("live").textContent = finalText + interim;
+  };
+  me.onerror = (e) => {
+    if (e.error === "not-allowed") { addMsg("system", "Microphone blocked. Allow mic access, or type instead."); }
+  };
+  me.onend = () => {
+    if (rec !== me) return;      // aborted on purpose
+    rec = null;
+    $("live").textContent = "";
+    const said = finalText.trim();
+    if (said) send(said);
+    else { setState("idle"); if ($("handsFree").checked && callActive && state === "idle") startListening(); }
+  };
+  me.start();
+}
+
+async function send(text) {
+  if (!callActive) return;
+  const my = ++turnId;
+  addMsg("user", text);
+  setState("thinking");
+  const t0 = performance.now();
+  let data;
+  try {
+    const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId, text }) });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    data = await res.json();
+  } catch (err) {
+    addMsg("system", "Could not reach the server: " + err.message);
+    setState("idle");
+    return;
+  }
+  const roundTrip = Math.round(performance.now() - t0);
+  addMsg("agent", data.reply, `agent ${data.latency_ms} ms, round trip ${roundTrip} ms`);
+  renderTrace(data);
+  renderChips(data.state);
+  setState("speaking");
+  await speak(data.reply);
+  if (my !== turnId) return;     // caller interrupted
+  if (data.transfer) {
+    addMsg("system", "Call transferred to a human agent. Summary passed on: " + data.transfer.summary);
+    endCall(false);
+    return;
+  }
+  setState("idle");
+  if ($("handsFree").checked && SR) startListening();
+}
+
+function renderChips(s) {
+  const chips = [];
+  chips.push(s.locked ? ["Verification locked", "bad"] : s.verified ? ["Verified: " + s.customer, "ok"] : ["Not verified", "warn"]);
+  if (s.pending_confirmation) chips.push(["Waiting for caller to confirm", "warn"]);
+  s.tickets.forEach(t => chips.push(["Ticket " + t, "ok"]));
+  if (s.transferred) chips.push(["Transferred to human", "bad"]);
+  $("chips").replaceChildren(...chips.map(([t, c]) => { const e = document.createElement("span"); e.className = "chip " + c; e.textContent = t; return e; }));
+}
+
+function renderTrace(data) {
+  const box = $("trace");
+  if (turnCount === 0) box.replaceChildren();
+  turnCount++;
+  const turn = document.createElement("div");
+  turn.className = "turn";
+  const h = document.createElement("h3");
+  h.textContent = "Turn " + turnCount + (data.trace.length ? "" : ": answered without tools");
+  turn.appendChild(h);
+  data.trace.forEach(step => {
+    const el = document.createElement("div");
+    const out = step.output || {};
+    el.className = "tool" + (out.error ? " err" : out.status === "confirmation_required" ? " confirm" : "");
+    const b = document.createElement("b"); b.textContent = step.tool;
+    const pre = document.createElement("pre");
+    pre.textContent = "in:  " + JSON.stringify(step.input) + "\nout: " + JSON.stringify(out, null, 1);
+    el.append(b, pre);
+    turn.appendChild(el);
+  });
+  box.prepend(turn);
+}
+
+async function startCall() {
+  callActive = true; turnCount = 0;
+  $("transcript").replaceChildren();
+  $("trace").replaceChildren(Object.assign(document.createElement("p"), { className: "empty", textContent: "Waiting for the first turn…" }));
+  ["startBtn"].forEach(i => $(i).disabled = true);
+  ["endBtn", "typed", "sendBtn"].forEach(i => $(i).disabled = false);
+  const res = await fetch("/api/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: sessionId }) });
+  const data = await res.json();
+  renderChips(data.state);
+  addMsg("agent", data.greeting);
+  setState("speaking");
+  const my = ++turnId;
+  await speak(data.greeting);
+  if (my !== turnId || !callActive) return;
+  setState("idle");
+  if ($("handsFree").checked && SR) startListening();
+}
+
+function endCall(announce = true) {
+  callActive = false; turnId++;
+  speechSynthesis.cancel(); stopRec();
+  $("live").textContent = "";
+  ["endBtn", "typed", "sendBtn"].forEach(i => $(i).disabled = true);
+  $("startBtn").disabled = false;
+  if (announce) addMsg("system", "Call ended.");
+  setState("idle");
+}
+
+$("startBtn").onclick = startCall;
+$("endBtn").onclick = () => endCall(true);
+$("mic").onclick = () => { if (state === "listening") { stopRec(); $("live").textContent = ""; setState("idle"); } else startListening(); };
+$("sendBtn").onclick = () => { const v = $("typed").value.trim(); if (v) { $("typed").value = ""; stopRec(); send(v); } };
+$("typed").addEventListener("keydown", (e) => { if (e.key === "Enter") $("sendBtn").click(); });
+
+fetch("/api/info").then(r => r.json()).then(info => {
+  $("llmBadge").textContent = info.llm === "mock" ? info.label + ". Add an API key for a real model." : "Model: " + info.label;
+  const demo = $("demo");
+  demo.replaceChildren();
+  info.demo_customers.forEach(c => {
+    const line = document.createElement("div");
+    const btn = document.createElement("button");
+    btn.textContent = c.phone;
+    btn.title = "Put this login in the text box";
+    btn.onclick = () => { $("typed").value = `${c.phone} pin ${c.pin}`; $("typed").focus(); };
+    line.append(btn, ` PIN ${c.pin}, ${c.name}, ${c.type}`);
+    demo.appendChild(line);
+  });
+});
+if (!SR) $("hint").textContent = "This browser has no speech recognition. Type your messages instead, or use Chrome or Edge for voice.";
+setState("idle");
+</script>
+</body>
+</html>

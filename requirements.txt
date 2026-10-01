@@ -1,0 +1,6 @@
+fastapi>=0.110
+uvicorn>=0.29
+python-dotenv>=1.0
+# install only the provider you use:
+anthropic>=0.40
+openai>=1.40
