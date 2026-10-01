@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Telecom Voice Agent
 
 A voice agent that handles common telecom support calls: data usage, bill explanations, plan changes,
@@ -77,3 +78,6 @@ Try: "Why is my bill so high?", "Activate a 5GB pack", "My internet is not worki
 5. **More evals.** Grow to 30 to 50 scenarios: angry caller, unclear audio, caller changes their mind, prompt
    injection attempts. Track task success, tool-call accuracy and latency per model.
 6. **Observability.** Log transcripts and tool traces, and add a dashboard for outcomes and escalation rate.
+=======
+# telecom-voice-agent
+>>>>>>> 06711fd1284b047239575073b80aabb6765b6983
